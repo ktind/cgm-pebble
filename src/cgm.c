@@ -438,158 +438,232 @@ static void sync_error_callback(DictionaryResult dict_error, AppMessageResult ap
     
 } // end sync_error_callback
 
+void update_readTime(char reading_time[124], bool use_current_time){
+    if (cgmicon_bitmap) {
+          gbitmap_destroy(cgmicon_bitmap);
+        }
+   
+    // initialize label buffer
+    strncpy(cgm_label_buffer, "", 5);
+    
+
+    // APP_LOG(APP_LOG_LEVEL_DEBUG, "NEW CGM TIME: %s", new_cgm_time);
+    if (use_current_time) {
+      //my_cgm_time=itoa(time(NULL));
+      //snprintf(reading_time,124,"%ld",time(NULL));
+      current_cgm_time=time(NULL);
+    }
+    if (strcmp(reading_time, "") == 0) {
+      // Init code or error code; set text layer & icon to empty value
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CGM TIME AGO INIT OR ERROR CODE: %s", label_buffer);
+      text_layer_set_text(cgmtime_layer, "");
+      cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[0]);
+      bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
+    }
+    else {
+      cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[3]);
+      bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
+
+      current_cgm_time = atol(reading_time);
+      time_now = time(NULL);
+
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT CGM TIME: %lu", current_cgm_time);
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "TIME NOW IN CGM: %lu", time_now);
+
+      current_cgm_timeago = abs(time_now - current_cgm_time);
+
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT CGM TIMEAGO: %lu", current_cgm_timeago);
+
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CGM TIME AGO LABEL IN: %s", label_buffer);
+
+      if (current_cgm_timeago < MINUTEAGO) {
+        cgm_timeago_diff = 0;
+        strncpy (formatted_cgm_timeago, "now", 10);
+      }
+      else if (current_cgm_timeago < HOURAGO) {
+        cgm_timeago_diff = (current_cgm_timeago / MINUTEAGO);
+        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
+        strncpy(cgm_label_buffer, "m", 5);
+        strcat(formatted_cgm_timeago, cgm_label_buffer);
+      }
+      else if (current_cgm_timeago < DAYAGO) {
+        cgm_timeago_diff = (current_cgm_timeago / HOURAGO);
+        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
+        strncpy(cgm_label_buffer, "h", 5);
+        strcat(formatted_cgm_timeago, cgm_label_buffer);
+      }
+      else if (current_cgm_timeago < WEEKAGO) {
+        cgm_timeago_diff = (current_cgm_timeago / DAYAGO);
+        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
+        strncpy(cgm_label_buffer, "d", 5);
+        strcat(formatted_cgm_timeago, cgm_label_buffer);
+      }
+      else {
+        strncpy (formatted_cgm_timeago, "", 10);
+        if (cgmicon_bitmap) {
+          gbitmap_destroy(cgmicon_bitmap);
+        }
+        cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[0]);
+        bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
+      }
+
+      text_layer_set_text(cgmtime_layer, formatted_cgm_timeago);
+
+      // check to see if we need to show receiver off icon
+      if ( (cgm_timeago_diff > 6) || ( (strcmp(cgm_label_buffer, "") != 0) && (strcmp(cgm_label_buffer, "m") != 0) ) ) {
+                if (cgmicon_bitmap) {
+                  gbitmap_destroy(cgmicon_bitmap);
+                }
+        cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[4]);
+        bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
+      }
+    }
+}
+
 static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
 
 	// APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE");
 
 	switch (key) {
-
-	case CGM_ICON_KEY:
-   	// APP_LOG(APP_LOG_LEVEL_INFO, "ICON ARROW");
-    // if SpecialValue already set, then break
-    if (specialvalue_bitmap) {
-      break;
-    }
-   
-    // no SpecialValue, so set regular icon
-	if (icon_bitmap) {
-		gbitmap_destroy(icon_bitmap);
-	}
-
-    // get current Arrow Direction
-    strncpy(current_icon, new_tuple->value->cstring, 124);               
-    
-    // check for arrow direction, set proper arrow icon
-    if ( (strcmp(current_icon, NO_ARROW) == 0) || (strcmp(current_icon, NOTCOMPUTE_ICON) == 0) || (strcmp(current_icon, OUTOFRANGE_ICON) == 0) ) {
-	  icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[0]);
-	  DoubleDownAlert = false;
-    } 
-    else if (strcmp(current_icon, DOUBLEUP_ARROW) == 0) {
-	  icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[1]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, SINGLEUP_ARROW) == 0) {
-	  icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[2]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, UP45_ARROW) == 0) {
-      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[3]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, FLAT_ARROW) == 0) {
-      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[4]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, DOWN45_ARROW) == 0) {
-	  icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[5]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, SINGLEDOWN_ARROW) == 0) {
-      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[6]);
-	  DoubleDownAlert = false;
-    }
-    else if (strcmp(current_icon, DOUBLEDOWN_ARROW) == 0) {
-		if (!DoubleDownAlert) {
-		  alert_handler(HIGH_ALERT);
-		  DoubleDownAlert = true;
-		}
-		icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[7]);
-    } 
-    else {
-      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[8]);
-	  DoubleDownAlert = false;
-    }
-
-    bitmap_layer_set_bitmap(icon_layer, icon_bitmap);
-    break; // break for CGM_ICON_KEY
-
-	case CGM_BG_KEY:
-  
-    // APP_LOG(APP_LOG_LEVEL_INFO, "BG CURRENT");
-  
-    if (specialvalue_bitmap) {
-      gbitmap_destroy(specialvalue_bitmap);
-    }
-    
-    // get MMOL value in myBGAtoi
-    current_isMMOL = 0;
-    strncpy(last_bg, new_tuple->value->cstring, 124);
-    current_bg = myBGAtoi(last_bg);
-    
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "CurrentBG: %d", current_bg);
-    
-    // check MMOL value and set current BG correctly
-    if ( current_isMMOL == 1 ) {
-      // MMOL Value
-      current_isMMOL = 1;
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "MMOL, FLAG SHOULD BE ONE: %i", current_isMMOL);
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "LAST MMOL: %s", last_bg);
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT MMOL: %i", current_bg);
-    }
-    else {
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "MGDL, FLAG SHOULD BE ZERO: %i", current_isMMOL);
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "LAST BG: %s", last_bg);
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT BG: %i", current_bg);
-    }
-    
-    if (current_isMMOL == 0) {
-      
-      // MG/DL; BG parse, check snooze, and set text 
-      
-      // check for init code or error code
-      if (current_bg <= 0) {
-        lastAlertTime = 0;
-        text_layer_set_text(bg_layer, "");
-		if (icon_bitmap) {
-		  gbitmap_destroy(icon_bitmap);
-		}
-        icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[8]);
-        bitmap_layer_set_bitmap(icon_layer, icon_bitmap);                  
-        break;
-      }
-    
-      // check for special value, if special value, then replace icon and blank BG; else send current BG    
-      if ((current_bg == NO_ANTENNA_VALUE) || (current_bg == BAD_RF_VALUE)) {
-        text_layer_set_text(bg_layer, "");
-        specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[1]);
-        bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
-      }
-      else if (current_bg == SENSOR_NOT_CALIBRATED_VALUE) {
-        text_layer_set_text(bg_layer, "");
-        specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[2]);
-        bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
-      }
-      else if (current_bg == STOP_LIGHT_VALUE) {
-        text_layer_set_text(bg_layer, "");
-        specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[3]);
-        bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
-      }
-      else if (current_bg == HOURGLASS_VALUE) {
-        text_layer_set_text(bg_layer, "");
-        specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[4]);
-        bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
-      }
-      else if (current_bg == QUESTION_MARKS_VALUE) {
-      text_layer_set_text(bg_layer, "");
-      specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[5]);
-      bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
-      }
-      else {
-        text_layer_set_text(bg_layer, new_tuple->value->cstring);
-      }
-  
-      // check BG and vibrate if needed
-    
-	  // check for SPECIAL VALUE
-      if ( ( ((current_bg > 0) && (current_bg < SPECVALUE_BG_MGDL))
-          && ((lastAlertTime == 0) || (lastAlertTime == SNOOZE_30MIN)) )
-		|| ( ((current_bg > 0) && (current_bg <= SPECVALUE_BG_MGDL)) && (!specvalue_overwrite) ) ) {
-      
-        //APP_LOG(APP_LOG_LEVEL_DEBUG, "SPECIAL VALUE BG ALERT");
-        //APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime IN:  %i", lastAlertTime);
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "specvalue_overwrite IN:  %i", specvalue_overwrite);
+	  case CGM_ICON_KEY:
+   	    // APP_LOG(APP_LOG_LEVEL_INFO, "ICON ARROW");
+            // if SpecialValue already set, then break
+            if (specialvalue_bitmap) {
+              break;
+            }
      
-	 // send alert and handle a bouncing connection
+            // no SpecialValue, so set regular icon
+	    if (icon_bitmap) {
+              gbitmap_destroy(icon_bitmap);
+	    }
+  
+            // get current Arrow Direction
+            strncpy(current_icon, new_tuple->value->cstring, 124);               
+      
+            // check for arrow direction, set proper arrow icon
+            if ( (strcmp(current_icon, NO_ARROW) == 0) || (strcmp(current_icon, NOTCOMPUTE_ICON) == 0) || (strcmp(current_icon, OUTOFRANGE_ICON) == 0) ) {
+	      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[0]);
+	      DoubleDownAlert = false;
+            } 
+              else if (strcmp(current_icon, DOUBLEUP_ARROW) == 0) {
+	      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[1]);
+	      DoubleDownAlert = false;
+            }
+              else if (strcmp(current_icon, SINGLEUP_ARROW) == 0) {
+	      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[2]);
+	      DoubleDownAlert = false;
+            }
+              else if (strcmp(current_icon, UP45_ARROW) == 0) {
+              icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[3]);
+	      DoubleDownAlert = false;
+            }
+              else if (strcmp(current_icon, FLAT_ARROW) == 0) {
+              icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[4]);
+	      DoubleDownAlert = false;
+            }
+              else if (strcmp(current_icon, DOWN45_ARROW) == 0) {
+	      icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[5]);
+	      DoubleDownAlert = false;
+            }
+              else if (strcmp(current_icon, SINGLEDOWN_ARROW) == 0) {
+              icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[6]);
+	      DoubleDownAlert = false;
+            }
+            else if (strcmp(current_icon, DOUBLEDOWN_ARROW) == 0) {
+              if (!DoubleDownAlert) {
+                alert_handler(HIGH_ALERT);
+                DoubleDownAlert = true;
+              }
+              icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[7]);
+            } 
+            else {
+              icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[8]);
+	      DoubleDownAlert = false;
+            }
+  
+            bitmap_layer_set_bitmap(icon_layer, icon_bitmap);
+            break; // break for CGM_ICON_KEY
+	  case CGM_BG_KEY:
+            // APP_LOG(APP_LOG_LEVEL_INFO, "BG CURRENT");
+  
+           if (specialvalue_bitmap) {
+             gbitmap_destroy(specialvalue_bitmap);
+           }
+    
+           // get MMOL value in myBGAtoi
+           current_isMMOL = 0;
+           strncpy(last_bg, new_tuple->value->cstring, 124);
+           current_bg = myBGAtoi(last_bg);
+    
+           // APP_LOG(APP_LOG_LEVEL_DEBUG, "CurrentBG: %d", current_bg);
+    
+           // check MMOL value and set current BG correctly
+           if ( current_isMMOL == 1 ) {
+             // MMOL Value
+             current_isMMOL = 1;
+           }
+           else {
+             // APP_LOG(APP_LOG_LEVEL_DEBUG, "MGDL, FLAG SHOULD BE ZERO: %i", current_isMMOL);
+             // APP_LOG(APP_LOG_LEVEL_DEBUG, "LAST BG: %s", last_bg);
+             // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT BG: %i", current_bg);
+           }
+    
+           if (current_isMMOL == 0) {
+             // MG/DL; BG parse, check snooze, and set text 
+      
+             // check for init code or error code
+             if (current_bg <= 0) {
+               lastAlertTime = 0;
+               text_layer_set_text(bg_layer, "");
+               if (icon_bitmap) {
+                 gbitmap_destroy(icon_bitmap);
+               }
+               icon_bitmap = gbitmap_create_with_resource(ARROW_ICONS[8]);
+               bitmap_layer_set_bitmap(icon_layer, icon_bitmap);                  
+               break;
+             }
+             // check for special value, if special value, then replace icon and blank BG; else send current BG    
+             if ((current_bg == NO_ANTENNA_VALUE) || (current_bg == BAD_RF_VALUE)) {
+               text_layer_set_text(bg_layer, "");
+               specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[1]);
+               bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
+             }
+             else if (current_bg == SENSOR_NOT_CALIBRATED_VALUE) {
+               text_layer_set_text(bg_layer, "");
+               specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[2]);
+               bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
+             }
+             else if (current_bg == STOP_LIGHT_VALUE) {
+               text_layer_set_text(bg_layer, "");
+               specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[3]);
+               bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
+             }
+             else if (current_bg == HOURGLASS_VALUE) {
+               text_layer_set_text(bg_layer, "");
+               specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[4]);
+               bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
+             }
+             else if (current_bg == QUESTION_MARKS_VALUE) {
+               text_layer_set_text(bg_layer, "");
+               specialvalue_bitmap = gbitmap_create_with_resource(SPECIAL_VALUE_ICONS[5]);
+               bitmap_layer_set_bitmap(icon_layer, specialvalue_bitmap);
+             }
+             else {
+               text_layer_set_text(bg_layer, new_tuple->value->cstring);
+             }
+  
+             // check BG and vibrate if needed
+    
+	     // check for SPECIAL VALUE
+             if ( ( ((current_bg > 0) && (current_bg < SPECVALUE_BG_MGDL))
+               && ((lastAlertTime == 0) || (lastAlertTime == SNOOZE_30MIN)) )
+               || ( ((current_bg > 0) && (current_bg <= SPECVALUE_BG_MGDL)) && (!specvalue_overwrite) ) ) {
+      
+               //APP_LOG(APP_LOG_LEVEL_DEBUG, "SPECIAL VALUE BG ALERT");
+               //APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime IN:  %i", lastAlertTime);
+               //APP_LOG(APP_LOG_LEVEL_DEBUG, "specvalue_overwrite IN:  %i", specvalue_overwrite);
+     
+	       // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!specvalue_overwrite)) { 
           alert_handler(HIGH_ALERT);        
           // don't know where we are coming from, so reset last alert time no matter what
@@ -1118,90 +1192,10 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
     break; // break for CGM_BG_KEY
 
 	case CGM_READTIME_KEY:
-   	// APP_LOG(APP_LOG_LEVEL_INFO, "READ CGM TIME");
-    
-    if (cgmicon_bitmap) {
-	  gbitmap_destroy(cgmicon_bitmap);
-	}
-    
-    // initialize label buffer
-    strncpy(cgm_label_buffer, "", 5);
-    
-    strncpy(new_cgm_time, new_tuple->value->cstring, 124);
-    
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "NEW CGM TIME: %s", new_cgm_time);
-    
-    if (strcmp(new_cgm_time, "") == 0) {     
-      // Init code or error code; set text layer & icon to empty value 
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CGM TIME AGO INIT OR ERROR CODE: %s", label_buffer);
-      text_layer_set_text(cgmtime_layer, "");
-      cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[0]);
-      bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);                   
-      break;
-    }
-    else {
-      cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[3]);
-      bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
-      
-      current_cgm_time = atol(new_cgm_time);
-      time_now = time(NULL);
-      
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT CGM TIME: %lu", current_cgm_time);
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "TIME NOW IN CGM: %lu", time_now);
-        
-      current_cgm_timeago = abs(time_now - current_cgm_time);
-        
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT CGM TIMEAGO: %lu", current_cgm_timeago);
-      
-      // APP_LOG(APP_LOG_LEVEL_DEBUG, "CGM TIME AGO LABEL IN: %s", label_buffer);
-      
-      if (current_cgm_timeago < MINUTEAGO) {
-        cgm_timeago_diff = 0;
-        strncpy (formatted_cgm_timeago, "now", 10);
-      }
-      else if (current_cgm_timeago < HOURAGO) {
-        cgm_timeago_diff = (current_cgm_timeago / MINUTEAGO);
-        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
-        strncpy(cgm_label_buffer, "m", 5);
-        strcat(formatted_cgm_timeago, cgm_label_buffer);
-      }
-      else if (current_cgm_timeago < DAYAGO) {
-        cgm_timeago_diff = (current_cgm_timeago / HOURAGO);
-        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
-        strncpy(cgm_label_buffer, "h", 5);
-        strcat(formatted_cgm_timeago, cgm_label_buffer);
-      }
-      else if (current_cgm_timeago < WEEKAGO) {
-        cgm_timeago_diff = (current_cgm_timeago / DAYAGO);
-        snprintf(formatted_cgm_timeago, 10, "%i", cgm_timeago_diff);
-        strncpy(cgm_label_buffer, "d", 5);
-        strcat(formatted_cgm_timeago, cgm_label_buffer);
-      }
-      else {
-        strncpy (formatted_cgm_timeago, "", 10);
-		if (cgmicon_bitmap) {
-		  gbitmap_destroy(cgmicon_bitmap);
-		}
-        cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[0]);
-        bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);   
-      }
-      
-      text_layer_set_text(cgmtime_layer, formatted_cgm_timeago);
-          
-      // check to see if we need to show receiver off icon
-      if ( (cgm_timeago_diff > 6) || ( (strcmp(cgm_label_buffer, "") != 0) && (strcmp(cgm_label_buffer, "m") != 0) ) ) {
-        // APP_LOG(APP_LOG_LEVEL_DEBUG, "SET PHONE OFF ICON: %s", label_buffer);
-		if (cgmicon_bitmap) {
-		  gbitmap_destroy(cgmicon_bitmap);
-		}
-        cgmicon_bitmap = gbitmap_create_with_resource(TIMEAGO_ICONS[4]);
-        bitmap_layer_set_bitmap(cgmicon_layer, cgmicon_bitmap);
-      }
-    }
-    
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "CGM TIME AGO LABEL OUT: %s", label_buffer);
-    
-    break;
+   	  // APP_LOG(APP_LOG_LEVEL_INFO, "READ CGM TIME");
+          strncpy(new_cgm_time, new_tuple->value->cstring, 124);
+          update_readTime(new_cgm_time,true);
+          break;
 
 	case CGM_ALERT_KEY:
 	// APP_LOG(APP_LOG_LEVEL_INFO, "ALERT FROM PEBBLE");
@@ -1423,15 +1417,26 @@ static void send_cmd(void) {
   
 } // end send_cmd
 
+static void request_last_download(void){
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+  Tuplet value = TupletCString(0,"lastdownload");
+  dict_write_tuplet(iter,&value); 
+  app_message_outbox_send();
+}
+
+
+
 static void timer_callback(void *data) {
 
   // APP_LOG(APP_LOG_LEVEL_INFO, "TIMER CALLBACK IN, TIMER POP, ABOUT TO CALL SEND CMD");
   
-  send_cmd();
+  update_readTime(new_cgm_time,true);
+  //send_cmd();
   
   // APP_LOG(APP_LOG_LEVEL_INFO, "TIMER CALLBACK, SEND CMD DONE, ABOUT TO REGISTER TIMER");
   
-  timer = app_timer_register(60000, timer_callback, NULL);
+  timer = app_timer_register(30000, timer_callback, NULL);
 
   // APP_LOG(APP_LOG_LEVEL_INFO, "TIMER CALLBACK, REGISTER TIMER DONE");
   
@@ -1442,6 +1447,7 @@ static void timer_callback(void *data) {
 static void handle_minute_tick(struct tm* tick_time, TimeUnits units_changed) {
   
   size_t tick_return = 0;
+  //update_readTime();
   
   if (units_changed & MINUTE_UNIT) {
     //APP_LOG(APP_LOG_LEVEL_INFO, "TICK TIME MINUTE CODE");
@@ -1465,6 +1471,7 @@ static void handle_minute_tick(struct tm* tick_time, TimeUnits units_changed) {
   }
   
 } // end handle_minute_tick
+
 
 static void window_load(Window *window) {
   
@@ -1578,11 +1585,14 @@ static void window_load(Window *window) {
   
   // APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, APP INIT DONE, ABOUT TO REGISTER TIMER");
   
+  // HERE
+  request_last_download();
   timer = app_timer_register(1000, timer_callback, NULL);
   
   // APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, TIMER REGISTER DONE");
   
 } // end window_load
+
 
 static void window_unload(Window *window) {
   
@@ -1631,6 +1641,7 @@ static void window_unload(Window *window) {
   // APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD OUT");
   
 } // end window_unload
+
 
 static void init(void) {
   
@@ -1689,11 +1700,3 @@ int main(void) {
   deinit();
   
 } // end main
-
-
-
-
-
-
-
-
